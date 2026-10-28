@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ruleta Regalona 🎡 – Sorteo Interactivo</title>
+  <meta name="description"
+    content="Ruleta Regalona: ingresa participantes y premios, personaliza el fondo y gira la ruleta para un sorteo interactivo." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- ══ MODAL: CLAVE DE SEGURIDAD / ACCESO ══ -->
+  <div id="auth-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <span class="modal-icon">🔒</span>
+        <div class="modal-title-wrap">
+          <h2 id="auth-modal-title">Acceso de Seguridad</h2>
+          <span class="modal-subtitle">Ingresa la clave para acceder al panel.</span>
+        </div>
+        <button class="modal-close" id="btn-close-auth" title="Cerrar">✕</button>
+      </div>
+
+      <form id="auth-form" class="auth-body" onsubmit="return false;">
+        <div class="auth-input-wrap">
+          <input type="password" id="auth-password-input" placeholder="Clave (por defecto: 1234)" autocomplete="off" maxlength="30" />
+          <button type="button" id="btn-toggle-auth-eye" class="auth-eye-btn" title="Mostrar/ocultar clave">👁️</button>
+        </div>
+        <div id="auth-error-msg" class="auth-error hidden">❌ Clave incorrecta</div>
+        <div class="modal-footer" style="padding:0;border:none">
+          <button type="button" class="btn-trucar-cancel" id="btn-cancel-auth">Cancelar</button>
+          <button type="submit" class="btn-trucar-apply" id="btn-submit-auth">Ingresar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: ASIGNACIÓN DE GANADORES POR PREMIO ══ -->
+  <div id="trucar-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="trucar-modal-title">
+    <div class="modal-card prize-plan-modal-card">
+      <div class="modal-header">
+        <span class="modal-icon">🎯</span>
+        <div class="modal-title-wrap">
+          <h2 id="trucar-modal-title">Asignación de Ganadores por Premio</h2>
+          <span class="modal-subtitle">Asigna un ganador a cada premio de la lista o déjalo "Al azar".</span>
+        </div>
+        <button class="modal-close" id="btn-close-trucar" title="Cerrar">✕</button>
+      </div>
+
+      <div class="prize-plan-body">
+        <div class="prize-plan-toolbar">
+          <span class="prize-plan-count" id="prize-plan-count">0 premios</span>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="btn-plan-reset" id="btn-change-pin" title="Cambiar clave actual">🔑 Cambiar clave</button>
+            <button type="button" class="btn-plan-reset" id="btn-plan-reset-all">🎲 Poner todos "Al azar"</button>
+          </div>
+        </div>
+
+        <div id="prize-plan-list" class="prize-plan-list">
+          <!-- Generado dinámicamente según premios actuales -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-trucar-cancel" id="btn-trucar-cancel">Cancelar</button>
+        <button class="btn-trucar-apply" id="btn-trucar-apply">✅ Guardar Asignaciones</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OVERLAY GANADOR ══ -->
+  <div id="winner-overlay" class="hidden">
+    <div id="winner-card">
+      <div class="winner-crown">👑</div>
+      <h2 id="winner-name"></h2>
+      <div class="winner-prize-label">Premio:</div>
+      <h3 id="winner-prize"></h3>
+      <button id="btn-close-winner">¡Seguir girando! 🎉</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-inner">
+      <span class="logo" id="app-logo">🎡 Ruleta Regalona</span>
+      <nav class="header-tabs">
+        <button class="tab-btn active" data-tab="ruleta">🎡 Ruleta</button>
+        <button class="tab-btn" data-tab="participantes">👥 Participantes</button>
+        <button class="tab-btn" data-tab="premios">🎁 Premios</button>
+        <button class="tab-btn" data-tab="configuracion">⚙️ Config</button>
+        <button class="tab-btn" data-tab="historial">📜 Historial</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB: RULETA -->
+    <section class="tab-content active" id="tab-ruleta">
+      <div class="ruleta-layout">
+        <div class="side-panel left-panel">
+          <div class="panel-card">
+            <h3>👥 Participantes <span id="count-part" class="badge">0</span></h3>
+            <ul id="list-part-mini" class="mini-list"></ul>
+          </div>
+          <div class="panel-card">
+            <h3>🎁 Premios <span id="count-prize" class="badge">0</span></h3>
+            <ul id="list-prize-mini" class="mini-list"></ul>
+          </div>
+        </div>
+
+        <div class="wheel-center">
+          <div class="wheel-wrapper">
+            <div class="wheel-pointer" id="wheel-pointer">▼</div>
+            <canvas id="wheel-canvas" width="520" height="520"></canvas>
+            <div class="wheel-hub"></div>
+            <!-- Botón secreto en el centro del hub -->
+            <button id="btn-open-trucar" class="secret-trucar-btn" title="" aria-label="Configuración de sorteo"></button>
+          </div>
+
+          <button id="btn-spin" class="btn-spin-main">
+            <span class="spin-icon">🌀</span> ¡GIRAR!
+          </button>
+
+          <div id="spin-result" class="spin-result hidden"></div>
+        </div>
+
+        <div class="side-panel right-panel">
+          <div class="panel-card">
+            <h3>🏆 Último ganador</h3>
+            <div id="last-winner-display" class="last-winner-empty">Aún sin ganadores</div>
+          </div>
+          <div class="panel-card">
+            <h3>📊 Estadísticas</h3>
+            <div class="stat-row"><span>Giros totales</span><strong id="stat-spins">0</strong></div>
+            <div class="stat-row"><span>Participantes</span><strong id="stat-parts">0</strong></div>
+            <div class="stat-row"><span>Premios entregados</span><strong id="stat-prizes">0</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: PARTICIPANTES -->
+    <section class="tab-content" id="tab-participantes">
+      <div class="tab-inner">
+        <h2>👥 Gestión de Participantes</h2>
+        <div class="input-row">
+          <textarea id="input-participants"
+            placeholder="Ingresa los nombres, uno por línea:&#10;Ana García&#10;Pedro López&#10;María Torres"
+            rows="10"></textarea>
+          <div class="side-actions">
+            <button class="btn-action" id="btn-load-participants">✅ Cargar participantes</button>
+            <button class="btn-action secondary" id="btn-clear-participants">🗑️ Limpiar todo</button>
+            <button class="btn-action secondary" id="btn-shuffle-participants">🔀 Mezclar orden</button>
+            <label class="btn-action secondary" for="import-participants-file" style="cursor:pointer">📂 Importar
+              .txt</label>
+            <input type="file" id="import-participants-file" accept=".txt,.csv" style="display:none" />
+            <div class="tip-box">💡 Pega desde Excel (un nombre por fila)</div>
+          </div>
+        </div>
+        <div class="list-display">
+          <h3>Lista actual <span id="part-total-badge" class="badge">0</span></h3>
+          <div id="participants-chips" class="chips-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: PREMIOS -->
+    <section class="tab-content" id="tab-premios">
+      <div class="tab-inner">
+        <h2>🎁 Gestión de Premios</h2>
+        <div class="input-row">
+          <textarea id="input-prizes"
+            placeholder="Ingresa los premios, uno por línea:&#10;Primer Premio – Viaje a Cancún&#10;Segundo Premio – TV 55&quot;&#10;Tercer Premio – Gift Card $50.000"
+            rows="10"></textarea>
+          <div class="side-actions">
+            <button class="btn-action" id="btn-load-prizes">✅ Cargar premios</button>
+            <button class="btn-action secondary" id="btn-clear-prizes">🗑️ Limpiar todo</button>
+            <label class="btn-action secondary" for="import-prizes-file" style="cursor:pointer">📂 Importar .txt</label>
+            <input type="file" id="import-prizes-file" accept=".txt,.csv" style="display:none" />
+          </div>
+        </div>
+        <div class="list-display">
+          <h3>Lista de premios <span id="prize-total-badge" class="badge">0</span></h3>
+          <div id="prizes-chips" class="chips-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: CONFIGURACIÓN -->
+    <section class="tab-content" id="tab-configuracion">
+      <div class="tab-inner">
+        <h2>⚙️ Personalización</h2>
+        <div class="config-grid">
+          <div class="config-card">
+            <h3>🎨 Fondo de la app</h3>
+            <div class="bg-options">
+              <label class="bg-option active" data-bg="gradient1"><span class="bg-preview bg-grad1"></span>
+                Cósmica</label>
+              <label class="bg-option" data-bg="gradient2"><span class="bg-preview bg-grad2"></span> Atardecer</label>
+              <label class="bg-option" data-bg="gradient3"><span class="bg-preview bg-grad3"></span> Océano</label>
+              <label class="bg-option" data-bg="gradient4"><span class="bg-preview bg-grad4"></span> Bosque</label>
+              <label class="bg-option" data-bg="gradient5"><span class="bg-preview bg-grad5"></span> Tropical</label>
+              <label class="bg-option" data-bg="image"><span class="bg-preview bg-custom">📷</span> Propia</label>
+            </div>
+            <div id="custom-bg-upload" style="display:none;margin-top:8px">
+              <label for="bg-file-input" class="btn-action secondary" style="display:inline-block;cursor:pointer">📂
+                Seleccionar imagen</label>
+              <input type="file" id="bg-file-input" accept="image/*" style="display:none" />
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3>🎨 Paleta de colores de la ruleta</h3>
+            <div class="palette-options">
+              <label class="palette-option active" data-palette="rainbow">
+                <div class="palette-preview rainbow-preview"></div> Arcoíris
+              </label>
+              <label class="palette-option" data-palette="neon">
+                <div class="palette-preview neon-preview"></div> Neón
+              </label>
+              <label class="palette-option" data-palette="pastel">
+                <div class="palette-preview pastel-preview"></div> Pastel
+              </label>
+              <label class="palette-option" data-palette="fire">
+                <div class="palette-preview fire-preview"></div> Fuego
+              </label>
+              <label class="palette-option" data-palette="ocean">
+                <div class="palette-preview ocean-preview"></div> Océano
+              </label>
+              <label class="palette-option" data-palette="gold">
+                <div class="palette-preview gold-preview"></div> Dorado
+              </label>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3>🎲 Opciones de sorteo</h3>
+            <div class="config-option">
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-remove-winner" checked />
+                <span class="toggle-track"></span>
+                Eliminar ganador de la lista tras el giro
+              </label>
+            </div>
+            <div class="config-option">
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-remove-prize" checked />
+                <span class="toggle-track"></span>
+                Eliminar premio entregado de la lista
+              </label>
+            </div>
+            <div class="config-option">
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-sound" checked />
+                <span class="toggle-track"></span>
+                Sonido de giro y fanfarria al ganar
+              </label>
+            </div>
+            <div class="config-option">
+              <label class="toggle-label">
+                <input type="checkbox" id="opt-confetti" checked />
+                <span class="toggle-track"></span>
+                Confeti al anunciar ganador
+              </label>
+            </div>
+            <div class="config-option">
+              <label for="spin-duration">Duración del giro:</label>
+              <input type="range" id="spin-duration" min="3" max="12" value="6" step="1" />
+              <span id="spin-duration-val">6s</span>
+            </div>
+          </div>
+
+          <div class="config-card">
+            <h3>✏️ Texto personalizado</h3>
+            <div class="config-option">
+              <label for="title-text">Título:</label>
+              <input type="text" id="title-text" value="🎡 Ruleta Regalona" class="config-input" maxlength="60" />
+            </div>
+            <div class="config-option">
+              <label for="winner-msg">Mensaje al ganar:</label>
+              <input type="text" id="winner-msg" value="¡Felicitaciones, ganaste!" class="config-input"
+                maxlength="80" />
+            </div>
+            <button class="btn-action" id="btn-apply-text">✅ Aplicar cambios</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: HISTORIAL -->
+    <section class="tab-content" id="tab-historial">
+      <div class="tab-inner">
+        <h2>📜 Historial de Ganadores</h2>
+        <div class="historial-actions">
+          <button class="btn-action secondary" id="btn-export-history">📥 Exportar CSV</button>
+          <button class="btn-action secondary" id="btn-clear-history">🗑️ Borrar historial</button>
+        </div>
+        <div id="history-list" class="history-list">
+          <div class="history-empty">No hay ganadores registrados aún.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+
+</html>
